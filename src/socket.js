@@ -16,16 +16,17 @@ export default function socket(socketIo) {
     socket.on('updateSpace', (data) => {
       socketIo.sockets.emit('updateSpaceUsers', [...userMap.values()]);
     });
+
     socket.on('disconnect', () => {
       console.log(socket.id, ' user disconnected');
+      const userdata = userMap.get(socket.id);
       userMap.delete(socket.id);
 
-      socketIo.sockets.emit('leavSpace', socket.id);
+      socketIo.sockets.emit('leavSpace', userdata);
     });
 
     socket.on('joinSpace', (data) => {
       const userdata = userMap.get(socket.id);
-
       userdata.x = data.x;
       userdata.y = data.y;
       userMap.set(socket.id, userdata);
@@ -47,8 +48,12 @@ export default function socket(socketIo) {
       socketIo.sockets.emit('sitPlayer', userdata);
     });
 
-    socket.on('chat', (msg) => {
-      socketIo.sockets.emit('chatPlayer', msg);
+    socket.on('chat', (data) => {
+      // id, message
+      socketIo.sockets.emit('chatPlayer', {
+        id: socket.id,
+        message: data.message,
+      });
     });
   });
 }

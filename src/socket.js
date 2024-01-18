@@ -13,10 +13,6 @@ export default function socket(socketIo) {
     userMap.set(socket.id, userdata);
     console.log([...userMap.values()]);
 
-    socket.on('updateSpace', (data) => {
-      socketIo.sockets.emit('updateSpaceUsers', [...userMap.values()]);
-    });
-
     socket.on('disconnect', () => {
       console.log(socket.id, ' user disconnected');
       const userdata = userMap.get(socket.id);
@@ -31,6 +27,7 @@ export default function socket(socketIo) {
       userdata.y = data.y;
       userMap.set(socket.id, userdata);
       socketIo.sockets.emit('joinSpacePlayer', userdata);
+      socket.emit('spaceUsers', [...userMap.values()]);
     });
 
     socket.on('move', (data) => {

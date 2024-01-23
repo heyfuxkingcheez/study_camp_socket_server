@@ -76,12 +76,10 @@ export default function socket(socketIo) {
       console.log(room);
       if (room === undefined) {
         socket.join(roomId);
-        socket.emit('Room created');
-      } else if (room.size == 1) {
-        socket.join(roomId);
-        socket.emit('Room joined');
+        socket.emit('Room created', roomId);
       } else {
-        socket.emit('Room full');
+        socket.join(roomId);
+        socket.emit('Room joined', roomId);
       }
       console.log(rooms);
     });

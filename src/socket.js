@@ -65,6 +65,13 @@ export default function socket(socketIo) {
         message: data.message,
       });
     });
+    //특정 플레이어에게 메세지를 보내야한다.
+    socket.on('directMessageToPlayer', (data) => {
+      socketIo.sockets.to(data.getterId).emit("directMessage", {
+        senderId: data.senderId,
+        message: data.message,
+      });
+    });
 
     // wecRTC
     // room

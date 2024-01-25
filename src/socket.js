@@ -134,6 +134,7 @@ export default function socket(socketIo) {
       //userMap에서 이름을 가져와보자.
       //일단 테스트용도
       //출력이되는지좀 보자.
+      //1번 게더 닉과 센더 닉이 없다.
       DirectMessage.create({
         sender_id: userMap.get(data.senderId).memberId,
         getter_id: userMap.get(data.getterId).memberId,
@@ -144,14 +145,16 @@ export default function socket(socketIo) {
     });
 
     socket.on('groupChat', (data) => {
-      for (let room in socket.rooms) {
+      for (let room of socket.rooms) {
         //모든 Room을 끊는다. 이건 매우 위험한 짓이다. 하지만 이렇게 해야 한다.
         //나중에 문제가 되면 if문에 조건을 더 걸자.
         //실행가능하길 빌자
-        if (room !== socket.id || !room.includes("space")) {
+        console.log("room", room);
+        if (room !== socket.id && !room.includes("space")) {
           socket.leave(room);
         }
       }
+      console.log("socket.rooms: " ,socket.rooms)
       socket.join(data.room);
       socketIo.sockets.to(data.room).emit('chatInGroup', {
         message: data.message,

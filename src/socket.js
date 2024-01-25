@@ -15,8 +15,15 @@ export default function socket(socketIo) {
       id: socket.id,
       spaceId: 0,
       nickName: '닉네임',
+      memberId: 0,
       x: 1,
       y: 1,
+      skin: 0,
+      face: 0,
+      hair: 0,
+      hair_color: 0,
+      clothes: 0,
+      clothes_color: 0,
       isSit: false,
       memberId: 0,
     };
@@ -26,13 +33,13 @@ export default function socket(socketIo) {
     socket.on('disconnect', () => {
       console.log(socket.id, ' user disconnected');
       const userdata = userMap.get(socket.id);
-      userMap.delete(socket.id);
 
       if (userdata.spaceId) {
         socketIo.sockets
           .to(`space ${userdata.spaceId}`)
           .emit('leaveSpace', userdata);
       }
+      userMap.delete(socket.id);
     });
 
     socket.on('joinSpace', (data) => {
@@ -40,22 +47,30 @@ export default function socket(socketIo) {
       //이건 좀 생각해봐야겠다.
       //엑세스 토큰 받음
       //accessToken의 sub값이 userId값이다.
+      //여기서 conflict났다.
       console.log('joinSpace:', data);
       const userdata = userMap.get(socket.id);
       userdata.nickName = data.nickName;
       userdata.spaceId = data.spaceId;
+      userdata.memberId = data.memberId;
       userdata.x = data.x;
       userdata.y = data.y;
-      //여기에 멤버아이디를 추가했다.
-      //검증은 안해도 되나?
-      //decode는 해석만 하는건데 일단 안해도 되는거 같다.
-      userdata.memberId = jwt.decode(data.accessToken).sub;
+      //userdata.memberId = jwt.decode(data.accessToken).sub;
+      userdata.skin = data.skin;
+      userdata.face = data.face;
+      userdata.hair = data.hair;
+      userdata.hair_color = data.hair_color;
+      userdata.clothes = data.clothes;
+      userdata.clothes_color = data.clothes_color;
       userMap.set(socket.id, userdata);
       socket.join(`space ${data.spaceId}`);
-      socketIo.sockets.emit('joinSpacePlayer', userdata);
-      socket.emit('spaceUsers', [...userMap.values()]);
-      // {isTrusted: true} 원인을 찾긴 해야하는데 시간을 너무 많이썻다. 일단 할일 하고 보자.
-      console.log('data.spaceId:', data.spaceId);
+      socketIo.sockets
+        .to(`space ${data.spaceId}`)
+        .emit('joinSpacePlayer', userdata);
+      const spaceUsers = [...userMap.values()].filter(
+        (user) => user.spaceId === data.spaceId,
+      );
+      socket.emit('spaceUsers', spaceUsers);
     });
 
     socket.on('move', (data) => {
@@ -75,6 +90,20 @@ export default function socket(socketIo) {
       socketIo.sockets
         .to(`space ${userdata.spaceId}`)
         .emit('sitPlayer', userdata);
+    });
+
+    socket.on('updateSkin', (data) => {
+      const userdata = userMap.get(data.id);
+      userdata.skin = data.skin;
+      userdata.face = data.face;
+      userdata.hair = data.hair;
+      userdata.hair_color = data.hair_color;
+      userdata.clothes = data.clothes;
+      userdata.clothes_color = data.clothes_color;
+      userMap.set(data.id, userdata);
+      socketIo.sockets
+        .to(`space ${userdata.spaceId}`)
+        .emit('updateSkinPlayer', userdata);
     });
 
     socket.on('chat', (data) => {
@@ -118,7 +147,8 @@ export default function socket(socketIo) {
       for (let room in socket.rooms) {
         //모든 Room을 끊는다. 이건 매우 위험한 짓이다. 하지만 이렇게 해야 한다.
         //나중에 문제가 되면 if문에 조건을 더 걸자.
-        if (room !== socket.id) {
+        //실행가능하길 빌자
+        if (room !== socket.id || !room.includes("space")) {
           socket.leave(room);
         }
       }

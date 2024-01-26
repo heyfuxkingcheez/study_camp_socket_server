@@ -35,8 +35,8 @@ jobs:
                   value: ${{ secrets.MONGODB_ID }}
                 - name: MONGODB_PW
                   value: ${{ secrets.MONGODB_PW }}
-                - name: MONGODB_CLUSTER
-                  value: ${{ secrets.MONGODB_CLUSTER }}
+                - name: MONGODB_NAME
+                  value: ${{ secrets.MONGODB_NAME }}
               ports: "3500"
             context:
               git:

@@ -2,7 +2,8 @@ import mongoose from 'mongoose';
 
 const connectToDatabase = () => {
   mongoose.connect(
-    `mongodb+srv://${process.env.MONGODB_ID}:${process.env.MONGODB_PW}@${process.env.MONGODB_CLUSTER}.mongodb.net/?retryWrites=true&w=majority`,
+    // `mongodb+srv://${process.env.MONGODB_ID}:${process.env.MONGODB_PW}@${process.env.MONGODB_CLUSTER}.mongodb.net/?retryWrites=true&w=majority`,
+    `mongodb+srv://${process.env.MONGODB_ID}:${process.env.MONGODB_PW}@${process.env.MONGODB_ID}.ngu1v3b.mongodb.net/${process.env.MONGODB_NAME}?retryWrites=true&w=majority`,
     {
       useNewUrlParser: true,
       useUnifiedTopology: true,

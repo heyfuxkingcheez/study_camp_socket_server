@@ -4,8 +4,9 @@ import { configDotenv } from 'dotenv';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import socket from './src/socket.js';
-
+import connectToDatabase from './mongodb.js';
 configDotenv();
+connectToDatabase();
 
 const app = express();
 const server = createServer(app);

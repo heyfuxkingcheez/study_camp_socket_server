@@ -6,6 +6,7 @@ configDotenv();
 
 export default function socket(socketIo) {
   let userMap = new Map();
+  let connectedUsers = [];
 
   socketIo.on('connection', (socket) => {
     socket.join('outLayer');
@@ -28,11 +29,13 @@ export default function socket(socketIo) {
       memberId: 0,
     };
     userMap.set(socket.id, userdata);
+    connectedUsers.push(socket.id);
     console.log([...userMap.values()]);
 
     socket.on('disconnect', () => {
       console.log(socket.id, ' user disconnected');
       const userdata = userMap.get(socket.id);
+      connectedUsers = connectedUsers.filter((user) => user !== socket.id);
 
       if (userdata.spaceId) {
         socketIo.sockets
@@ -40,6 +43,10 @@ export default function socket(socketIo) {
           .emit('leaveSpace', userdata);
       }
       userMap.delete(socket.id);
+
+      socketIo.sockets
+        .to(`space ${userdata.spaceId}`)
+        .emit('disconnected', socket.id);
     });
 
     socket.on('joinSpace', (data) => {
@@ -113,94 +120,45 @@ export default function socket(socketIo) {
         nickName: data.nickName,
         message: data.message,
       });
-      //유저 맵 출력해서 값 확인
-      console.log('usermap in allchat:', userMap.get(data.id));
-      AllChat.create({
-        nick_name: data.nickName,
-        message: data.message,
-        member_id: userMap.get(data.id).memberId,
-        //#TODO {isTrusted: true}가 뜬다 일단 미뤄두자 이거 생각한다고 몇시간을쓰냐
-        space_id: 9,
-      });
-    });
-    //특정 플레이어에게 메세지를 보내야한다.
-    socket.on('directMessageToPlayer', (data) => {
-      socketIo.sockets.to(data.getterId).emit('directMessage', {
-        senderId: data.senderId,
-        message: data.message,
-      });
-      console.log('DMDATA=>', data);
-      console.log('userMap in DMChat:', userMap);
-      //userMap에서 이름을 가져와보자.
-      //일단 테스트용도
-      //출력이되는지좀 보자.
-      //1번 게더 닉과 센더 닉이 없다.
-      DirectMessage.create({
-        sender_id: userMap.get(data.senderId).memberId,
-        getter_id: userMap.get(data.getterId).memberId,
-        message: data.message,
-        getter_nick: data.getterNickName,
-        sender_nick: data.senderNickName,
-      });
     });
 
-    socket.on('groupChat', (data) => {
-      for (let room of socket.rooms) {
-        //모든 Room을 끊는다. 이건 매우 위험한 짓이다. 하지만 이렇게 해야 한다.
-        //나중에 문제가 되면 if문에 조건을 더 걸자.
-        //실행가능하길 빌자
-        console.log("room", room);
-        if (room !== socket.id && !room.includes("space")) {
-          socket.leave(room);
-        }
-      }
-      console.log("socket.rooms: " ,socket.rooms)
-      socket.join(data.room);
-      socketIo.sockets.to(data.room).emit('chatInGroup', {
-        message: data.message,
-        senderSocketId: data.senderId,
-        senderNickName: data.nickName,
-      });
-    });
     // wecRTC
-    // room
-    socket.on('join', (roomId) => {
-      let rooms = socketIo.sockets.adapter.rooms;
-      console.log(rooms);
-
-      let room = rooms.get(roomId);
-      console.log(room);
-      if (room === undefined) {
-        socket.join(roomId);
-        socket.emit('Room created', roomId);
-      } else {
-        socket.join(roomId);
-        socket.emit('Room joined', roomId);
-      }
-      console.log(rooms);
+    socket.on('requestUserList', () => {
+      console.log(`requestUserList : 웹브라우저에서 보내는 메시지는 없음`);
+      socket.emit('update-user-list', { userIds: connectedUsers });
+      socket.broadcast.emit('update-user-list', { userIds: connectedUsers });
+      console.log(
+        `update-user-list 나를 제외한 유저들에게 업데이트된 유저 리스트 담아서 보냄`,
+      );
     });
 
-    // signaling server (stun / trun)
-    socket.on('ready', (roomId) => {
-      console.log('Ready');
-      socket.broadcast.to(roomId).emit('ready');
+    socket.on('mediaOffer', (data) => {
+      console.log('mediaOffer : 웹브라우저에서 내가 만든 offer 메시지 받음');
+      socket.to(data.to).emit('mediaOffer', {
+        from: data.from,
+        offer: data.offer,
+      });
+      console.log('mediaOffer : 다른 유저에게 offer 메시지 웹브라우저로 보냄');
     });
 
-    socket.on('candidate', (candidate, roomId) => {
-      console.log('Candidate');
-      console.log(candidate);
-      socket.broadcast.to(roomId).emit('candidate', candidate);
+    socket.on('mediaAnswer', (data) => {
+      console.log('mediaAnswer : 웹브라우저에서 내가 만든 answer 메시지 받음');
+      socket.to(data.to).emit('mediaAnswer', {
+        from: data.from,
+        answer: data.answer,
+      });
+      console.log('mediaAnswer 다른 유저에게 answer 메시지 웹브라우저로 보냄');
     });
 
-    socket.on('offer', (offer, roomId) => {
-      console.log('Offer');
-      console.log(offer);
-      socket.broadcast.to(roomId).emit('offer', offer);
-    });
-
-    socket.on('answer', (answer, roomId) => {
-      console.log('Answer');
-      socket.broadcast.to(roomId).emit('answer', answer);
+    socket.on('iceCandidate', (data) => {
+      console.log(
+        'iceCandidate : 웹브라우저에서 내가 만든 SDP ice candidate 받음',
+      );
+      socket.to(data.to).emit('remotePeerIceCandidate', {
+        from: data.from,
+        candidate: data.candidate,
+      });
+      console.log('remotePeerIceCandidate : 다른 유저한테 candidate 보냄');
     });
   });
 }

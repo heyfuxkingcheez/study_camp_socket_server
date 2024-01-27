@@ -1,5 +1,6 @@
 export default function socket(socketIo) {
   let userMap = new Map();
+  let connectedUsers = [];
 
   socketIo.on('connection', (socket) => {
     console.log(socket.id, 'user connected');
@@ -12,18 +13,24 @@ export default function socket(socketIo) {
       isSit: false,
     };
     userMap.set(socket.id, userdata);
+    connectedUsers.push(socket.id);
     console.log([...userMap.values()]);
 
     socket.on('disconnect', () => {
       console.log(socket.id, ' user disconnected');
       const userdata = userMap.get(socket.id);
       userMap.delete(socket.id);
+      connectedUsers = connectedUsers.filter((user) => user !== socket.id);
 
       if (userdata.spaceId) {
         socketIo.sockets
           .to(`space ${userdata.spaceId}`)
           .emit('leaveSpace', userdata);
       }
+
+      socketIo.sockets
+        .to(`space ${userdata.spaceId}`)
+        .emit('disconnected', socket.id);
     });
 
     socket.on('joinSpace', (data) => {
@@ -67,44 +74,42 @@ export default function socket(socketIo) {
     });
 
     // wecRTC
-    // room
-    socket.on('join', (roomId) => {
-      let rooms = socketIo.sockets.adapter.rooms;
-      console.log(rooms);
-
-      let room = rooms.get(roomId);
-      console.log(room);
-      if (room === undefined) {
-        socket.join(roomId);
-        socket.emit('Room created', roomId);
-      } else {
-        socket.join(roomId);
-        socket.emit('Room joined', roomId);
-      }
-      console.log(rooms);
+    socket.on('requestUserList', () => {
+      console.log(`requestUserList : 웹브라우저에서 보내는 메시지는 없음`);
+      socket.emit('update-user-list', { userIds: connectedUsers });
+      socket.broadcast.emit('update-user-list', { userIds: connectedUsers });
+      console.log(
+        `update-user-list 나를 제외한 유저들에게 업데이트된 유저 리스트 담아서 보냄`,
+      );
     });
 
-    // signaling server (stun / trun)
-    socket.on('ready', (roomId) => {
-      console.log('Ready');
-      socket.broadcast.to(roomId).emit('ready');
+    socket.on('mediaOffer', (data) => {
+      console.log('mediaOffer : 웹브라우저에서 내가 만든 offer 메시지 받음');
+      socket.to(data.to).emit('mediaOffer', {
+        from: data.from,
+        offer: data.offer,
+      });
+      console.log('mediaOffer : 다른 유저에게 offer 메시지 웹브라우저로 보냄');
     });
 
-    socket.on('candidate', (candidate, roomId) => {
-      console.log('Candidate');
-      console.log(candidate);
-      socket.broadcast.to(roomId).emit('candidate', candidate);
+    socket.on('mediaAnswer', (data) => {
+      console.log('mediaAnswer : 웹브라우저에서 내가 만든 answer 메시지 받음');
+      socket.to(data.to).emit('mediaAnswer', {
+        from: data.from,
+        answer: data.answer,
+      });
+      console.log('mediaAnswer 다른 유저에게 answer 메시지 웹브라우저로 보냄');
     });
 
-    socket.on('offer', (offer, roomId) => {
-      console.log('Offer');
-      console.log(offer);
-      socket.broadcast.to(roomId).emit('offer', offer);
-    });
-
-    socket.on('answer', (answer, roomId) => {
-      console.log('Answer');
-      socket.broadcast.to(roomId).emit('answer', answer);
+    socket.on('iceCandidate', (data) => {
+      console.log(
+        'iceCandidate : 웹브라우저에서 내가 만든 SDP ice candidate 받음',
+      );
+      socket.to(data.to).emit('remotePeerIceCandidate', {
+        from: data.from,
+        candidate: data.candidate,
+      });
+      console.log('remotePeerIceCandidate : 다른 유저한테 candidate 보냄');
     });
   });
 }

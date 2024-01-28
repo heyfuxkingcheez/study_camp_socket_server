@@ -56,6 +56,7 @@ export default function socket(socketIo) {
       //accessToken의 sub값이 userId값이다.
       //여기서 conflict났다.
       console.log('joinSpace:', data);
+      console.log('데이타 받음', data);
       const userdata = userMap.get(socket.id);
       userdata.nickName = data.nickName;
       userdata.spaceId = data.spaceId;

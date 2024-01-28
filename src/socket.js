@@ -121,6 +121,54 @@ export default function socket(socketIo) {
         nickName: data.nickName,
         message: data.message,
       });
+      //유저 맵 출력해서 값 확인
+      console.log('usermap in allchat:', userMap.get(data.id));
+      AllChat.create({
+        nick_name: data.nickName,
+        message: data.message,
+        member_id: userMap.get(data.id).memberId,
+        //#TODO {isTrusted: true}가 뜬다 일단 미뤄두자 이거 생각한다고 몇시간을쓰냐
+        space_id: 9,
+      });
+    });
+    //특정 플레이어에게 메세지를 보내야한다.
+    socket.on('directMessageToPlayer', (data) => {
+      socketIo.sockets.to(data.getterId).emit('directMessage', {
+        senderId: data.senderId,
+        message: data.message,
+      });
+      console.log('DMDATA=>', data);
+      console.log('userMap in DMChat:', userMap);
+      //userMap에서 이름을 가져와보자.
+      //일단 테스트용도
+      //출력이되는지좀 보자.
+      //1번 게더 닉과 센더 닉이 없다.
+      DirectMessage.create({
+        sender_id: userMap.get(data.senderId).memberId,
+        getter_id: userMap.get(data.getterId).memberId,
+        message: data.message,
+        getter_nick: data.getterNickName,
+        sender_nick: data.senderNickName,
+      });
+    });
+
+    socket.on('groupChat', (data) => {
+      for (let room of socket.rooms) {
+        //모든 Room을 끊는다. 이건 매우 위험한 짓이다. 하지만 이렇게 해야 한다.
+        //나중에 문제가 되면 if문에 조건을 더 걸자.
+        //실행가능하길 빌자
+        console.log('room', room);
+        if (room !== socket.id && !room.includes('space')) {
+          socket.leave(room);
+        }
+      }
+      console.log('socket.rooms: ', socket.rooms);
+      socket.join(data.room);
+      socketIo.sockets.to(data.room).emit('chatInGroup', {
+        message: data.message,
+        senderSocketId: data.senderId,
+        senderNickName: data.nickName,
+      });
     });
 
     // wecRTC

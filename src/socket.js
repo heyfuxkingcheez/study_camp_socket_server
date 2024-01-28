@@ -17,6 +17,7 @@ export default function socket(socketIo) {
       spaceId: 0,
       nickName: '닉네임',
       memberId: 0,
+      userId: 0,
       x: 1,
       y: 1,
       skin: 0,
@@ -26,7 +27,6 @@ export default function socket(socketIo) {
       clothes: 0,
       clothes_color: 0,
       isSit: false,
-      memberId: 0,
     };
     userMap.set(socket.id, userdata);
     connectedUsers.push(socket.id);
@@ -55,11 +55,13 @@ export default function socket(socketIo) {
       //엑세스 토큰 받음
       //accessToken의 sub값이 userId값이다.
       //여기서 conflict났다.
+      
       console.log('joinSpace:', data);
       const userdata = userMap.get(socket.id);
       userdata.nickName = data.nickName;
       userdata.spaceId = data.spaceId;
       userdata.memberId = data.memberId;
+      userdata.userId = data.userId;
       userdata.x = data.x;
       userdata.y = data.y;
       //userdata.memberId = jwt.decode(data.accessToken).sub;
@@ -77,6 +79,8 @@ export default function socket(socketIo) {
       const spaceUsers = [...userMap.values()].filter(
         (user) => user.spaceId === data.spaceId,
       );
+      //userId가 안온다. memberId를 봐야겠다.
+      console.log("spaceUsers=>", spaceUsers)
       socket.emit('spaceUsers', spaceUsers);
     });
 
@@ -142,6 +146,7 @@ export default function socket(socketIo) {
       //일단 테스트용도
       //출력이되는지좀 보자.
       //1번 게더 닉과 센더 닉이 없다.
+      //TODO getter_id 
       DirectMessage.create({
         sender_id: userMap.get(data.senderId).memberId,
         getter_id: userMap.get(data.getterId).memberId,

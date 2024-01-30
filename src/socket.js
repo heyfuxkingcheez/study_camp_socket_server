@@ -1,3 +1,4 @@
+import Attendance from '../schemas/attendance.js';
 import AllChat from '../schemas/all-chat.js';
 import DirectMessage from '../schemas/direct-message.js';
 import { configDotenv } from 'dotenv';
@@ -28,28 +29,57 @@ export default function socket(socketIo) {
       isSit: false,
       memberId: 0,
     };
+
     userMap.set(socket.id, userdata);
     connectedUsers.push(socket.id);
     console.log([...userMap.values()]);
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       console.log(socket.id, ' user disconnected');
       const userdata = userMap.get(socket.id);
       connectedUsers = connectedUsers.filter((user) => user !== socket.id);
 
       if (userdata.spaceId) {
+        const now = new Date(); // 현재 UTC 시간
+        const koreaTimeNow = new Date(now.getTime() + 9 * 60 * 60000); // 한국 시간으로 변환
+
+        // 사용자의 가장 최근 출석 기록을 찾음
+        const lastAttendance = await Attendance.findOne({
+          memberId: userdata.memberId,
+          spaceId: userdata.spaceId,
+        }).sort({ entryTime: -1 });
+
+        if (lastAttendance) {
+          const lastExitDate = lastAttendance.exitTime
+            ? new Date(lastAttendance.exitTime)
+            : null;
+          const koreaTimeLastExit = lastExitDate
+            ? new Date(lastExitDate.getTime() + 9 * 60 * 60000)
+            : null; // 한국 시간으로 변환
+
+          // 퇴실 시간이 같은 날짜에 속하는지 확인
+          if (
+            !koreaTimeLastExit ||
+            (koreaTimeLastExit.getUTCDate() === koreaTimeNow.getUTCDate() &&
+              koreaTimeLastExit.getUTCMonth() === koreaTimeNow.getUTCMonth() &&
+              koreaTimeLastExit.getUTCFullYear() ===
+                koreaTimeNow.getUTCFullYear())
+          ) {
+            // 동일한 날짜 내에서 연결이 끊긴 경우, 현재 시간을 퇴실 시간으로 설정
+            lastAttendance.exitTime = now;
+            await lastAttendance.save();
+          }
+        }
+
         socketIo.sockets
           .to(`space ${userdata.spaceId}`)
           .emit('leaveSpace', userdata);
       }
-      userMap.delete(socket.id);
 
-      socketIo.sockets
-        .to(`space ${userdata.spaceId}`)
-        .emit('disconnected', socket.id);
+      userMap.delete(socket.id);
     });
 
-    socket.on('joinSpace', (data) => {
+    socket.on('joinSpace', async (data) => {
       //JWT토큰을 해석해서 member_id를 넣어라.
       //이건 좀 생각해봐야겠다.
       //엑세스 토큰 받음
@@ -77,6 +107,57 @@ export default function socket(socketIo) {
       const spaceUsers = [...userMap.values()].filter(
         (user) => user.spaceId === data.spaceId,
       );
+
+      const now = new Date(); // 현재 UTC 시간
+
+      // 사용자의 가장 최근 출석 기록을 찾음
+      const lastAttendance = await Attendance.findOne({
+        memberId: userdata.memberId,
+        spaceId: userdata.spaceId,
+      }).sort({ entryTime: -1 });
+
+      if (lastAttendance) {
+        const lastEntryDate = new Date(lastAttendance.entryTime);
+
+        // UTC 기준 날짜가 변경되었는지 확인
+        if (
+          lastEntryDate.getUTCDate() !== now.getUTCDate() ||
+          lastEntryDate.getUTCMonth() !== now.getUTCMonth() ||
+          lastEntryDate.getUTCFullYear() !== now.getUTCFullYear()
+        ) {
+          // 퇴실 시간 업데이트 (전날 23:59:59 UTC)
+          lastAttendance.exitTime = new Date(
+            Date.UTC(
+              lastEntryDate.getUTCFullYear(),
+              lastEntryDate.getUTCMonth(),
+              lastEntryDate.getUTCDate(),
+              23,
+              59,
+              59,
+            ),
+          );
+          await lastAttendance.save();
+
+          // 새 출석 기록 생성
+          const newAttendance = new Attendance({
+            spaceId: userdata.spaceId,
+            memberId: userdata.memberId,
+            nickName: userdata.nickName,
+            entryTime: now,
+          });
+          await newAttendance.save();
+        }
+      } else {
+        // 새 출석 기록 생성
+        const newAttendance = new Attendance({
+          spaceId: userdata.spaceId,
+          memberId: userdata.memberId,
+          nickName: userdata.nickName,
+          entryTime: now,
+        });
+        await newAttendance.save();
+      }
+
       socket.emit('spaceUsers', spaceUsers);
     });
 

@@ -55,7 +55,7 @@ export default function socket(socketIo) {
       //엑세스 토큰 받음
       //accessToken의 sub값이 userId값이다.
       //여기서 conflict났다.
-      
+
       console.log('joinSpace:', data);
       const userdata = userMap.get(socket.id);
       userdata.nickName = data.nickName;
@@ -80,7 +80,7 @@ export default function socket(socketIo) {
         (user) => user.spaceId === data.spaceId,
       );
       //userId가 안온다. memberId를 봐야겠다.
-      console.log("spaceUsers=>", spaceUsers)
+      console.log('spaceUsers=>', spaceUsers);
       socket.emit('spaceUsers', spaceUsers);
     });
 
@@ -131,7 +131,7 @@ export default function socket(socketIo) {
         message: data.message,
         member_id: userMap.get(data.id).memberId,
         //#TODO {isTrusted: true}가 뜬다 일단 미뤄두자 이거 생각한다고 몇시간을쓰냐
-        space_id: 9,
+        space_id: data.spaceId,
       });
     });
     //특정 플레이어에게 메세지를 보내야한다.
@@ -146,7 +146,7 @@ export default function socket(socketIo) {
       //일단 테스트용도
       //출력이되는지좀 보자.
       //1번 게더 닉과 센더 닉이 없다.
-      //TODO getter_id 
+      //TODO getter_id
       DirectMessage.create({
         sender_id: userMap.get(data.senderId).memberId,
         getter_id: userMap.get(data.getterId).memberId,
@@ -212,6 +212,36 @@ export default function socket(socketIo) {
         candidate: data.candidate,
       });
       console.log('remotePeerIceCandidate : 다른 유저한테 candidate 보냄');
+    });
+
+    socket.on('AllChatHistory', async (data) => {
+      try {
+        console.log('AllChatHistory data=>', data);
+        const socketId = socket.id;
+        const spaceId = data.spaceId;
+        const chats = await AllChat.find({ space_id: spaceId }).sort({
+          createdAt: 1,
+        });
+        console.log('Chats:', chats);
+        console.log('socketId', socketId);
+        await socketIo.sockets.to(socketId).emit('AllChatHistory', { chats });
+      } catch (err) {
+        console.error('AllChatHistory Error:', err);
+      }
+    });
+
+    socket.on('AllDMHistory', async (data) => {
+      try {
+        console.log('AllDMHistory data=>', data);
+        const socketId = socket.id;
+        const memberId = data.memberId;
+        const directMessages = await DirectMessage.find({
+          $or: [{ sender_id: memberId }, { getter_id: memberId }],
+        });
+        await socketIo.sockets.to(socketId).emit('AllDMHistory', { directMessages});
+      } catch (err) {
+        console.error('AllDMHistory Error:', err);
+      }
     });
   });
 }

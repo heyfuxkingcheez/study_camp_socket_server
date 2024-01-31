@@ -23,9 +23,11 @@ app.use(
 // 출석 관련 라우트 추가
 app.use(attendanceRoutes);
 
+app.use(express.static('back-office'));
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT,
+    origin: [process.env.CLIENT],
     credentials: true,
   },
 });

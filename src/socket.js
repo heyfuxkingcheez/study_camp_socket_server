@@ -1,4 +1,6 @@
 import Attendance from '../schemas/attendance.js';
+import ConcurrentUser from '../schemas/concurrent-users.js';
+import schedule from 'node-schedule';
 import AllChat from '../schemas/all-chat.js';
 import DirectMessage from '../schemas/direct-message.js';
 import { configDotenv } from 'dotenv';
@@ -34,6 +36,7 @@ export default function socket(socketIo) {
     connectedUsers.push(socket.id);
     console.log([...userMap.values()]);
 
+    updateConnectedUsersCount();
     socket.on('disconnect', async () => {
       console.log(socket.id, ' user disconnected');
       const userdata = userMap.get(socket.id);
@@ -77,6 +80,7 @@ export default function socket(socketIo) {
       }
 
       userMap.delete(socket.id);
+      updateConnectedUsersCount();
     });
 
     socket.on('joinSpace', async (data) => {
@@ -290,4 +294,25 @@ export default function socket(socketIo) {
       console.log('remotePeerIceCandidate : 다른 유저한테 candidate 보냄');
     });
   });
+
+  // 1분 간격으로 동시접속자 수를 데이터베이스에 저장
+  schedule.scheduleJob('*/1 * * * *', function () {
+    const concurrentUsersRecord = new ConcurrentUser({
+      count: connectedUsers.length, // 직접 connectedUsers 배열의 길이를 사용합니다.
+    });
+    concurrentUsersRecord
+      .save()
+      .then(() =>
+        console.log(
+          `Saved ${connectedUsers.length} concurrent users at ${new Date().toISOString()}`,
+        ),
+      )
+      .catch((err) => console.error(err));
+  });
+
+  // 연결된 사용자 수를 업데이트하는 함수
+  function updateConnectedUsersCount() {
+    // connectedUsers 배열의 길이를 사용하여 현재 연결된 사용자 수를 설정합니다.
+    console.log(`Current connected users: ${connectedUsers.length}`);
+  }
 }

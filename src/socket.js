@@ -20,6 +20,7 @@ export default function socket(socketIo) {
       spaceId: 0,
       nickName: '닉네임',
       memberId: 0,
+      userId: 0,
       x: 1,
       y: 1,
       skin: 0,
@@ -29,7 +30,6 @@ export default function socket(socketIo) {
       clothes: 0,
       clothes_color: 0,
       isSit: false,
-      memberId: 0,
     };
 
     userMap.set(socket.id, userdata);
@@ -89,11 +89,13 @@ export default function socket(socketIo) {
       //엑세스 토큰 받음
       //accessToken의 sub값이 userId값이다.
       //여기서 conflict났다.
+
       console.log('joinSpace:', data);
       const userdata = userMap.get(socket.id);
       userdata.nickName = data.nickName;
       userdata.spaceId = data.spaceId;
       userdata.memberId = data.memberId;
+      userdata.userId = data.userId;
       userdata.x = data.x;
       userdata.y = data.y;
       //userdata.memberId = jwt.decode(data.accessToken).sub;
@@ -212,7 +214,7 @@ export default function socket(socketIo) {
         message: data.message,
         member_id: userMap.get(data.id).memberId,
         //#TODO {isTrusted: true}가 뜬다 일단 미뤄두자 이거 생각한다고 몇시간을쓰냐
-        space_id: 9,
+        space_id: data.spaceId,
       });
     });
     //특정 플레이어에게 메세지를 보내야한다.
@@ -227,6 +229,7 @@ export default function socket(socketIo) {
       //일단 테스트용도
       //출력이되는지좀 보자.
       //1번 게더 닉과 센더 닉이 없다.
+      //TODO getter_id
       DirectMessage.create({
         sender_id: userMap.get(data.senderId).memberId,
         getter_id: userMap.get(data.getterId).memberId,
@@ -293,12 +296,44 @@ export default function socket(socketIo) {
       });
       console.log('remotePeerIceCandidate : 다른 유저한테 candidate 보냄');
     });
+
+    socket.on('AllChatHistory', async (data) => {
+      try {
+        console.log('AllChatHistory data=>', data);
+        const socketId = socket.id;
+        const spaceId = data.spaceId;
+        const chats = await AllChat.find({ space_id: spaceId }).sort({
+          createdAt: 1,
+        });
+        console.log('Chats:', chats);
+        console.log('socketId', socketId);
+        await socketIo.sockets.to(socketId).emit('AllChatHistory', { chats });
+      } catch (err) {
+        console.error('AllChatHistory Error:', err);
+      }
+    });
+
+    socket.on('AllDMHistory', async (data) => {
+      try {
+        console.log('AllDMHistory data=>', data);
+        const socketId = socket.id;
+        const memberId = data.memberId;
+        const directMessages = await DirectMessage.find({
+          $or: [{ sender_id: memberId }, { getter_id: memberId }],
+        });
+        await socketIo.sockets
+          .to(socketId)
+          .emit('AllDMHistory', { directMessages });
+      } catch (err) {
+        console.error('AllDMHistory Error:', err);
+      }
+    });
   });
 
   // 1분 간격으로 동시접속자 수를 데이터베이스에 저장
   schedule.scheduleJob('*/1 * * * *', function () {
     const concurrentUsersRecord = new ConcurrentUser({
-      count: connectedUsers.length, // 직접 connectedUsers 배열의 길이를 사용합니다.
+      count: connectedUsers.length,
     });
     concurrentUsersRecord
       .save()
@@ -312,7 +347,7 @@ export default function socket(socketIo) {
 
   // 연결된 사용자 수를 업데이트하는 함수
   function updateConnectedUsersCount() {
-    // connectedUsers 배열의 길이를 사용하여 현재 연결된 사용자 수를 설정합니다.
+    // connectedUsers 배열의 길이를 사용하여 현재 연결된 사용자 수를 설정
     console.log(`Current connected users: ${connectedUsers.length}`);
   }
 }

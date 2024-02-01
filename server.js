@@ -1,12 +1,12 @@
 import express from 'express';
 import { createServer } from 'node:http';
 import { configDotenv } from 'dotenv';
+configDotenv();
 import attendanceRoutes from './src/routes/attendanceRoutes.js';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import socket from './src/socket.js';
 import connectToDatabase from './mongodb.js';
-configDotenv();
 connectToDatabase();
 
 const app = express();

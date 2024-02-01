@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Back office</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 올바른 date-fns 및 chartjs-adapter-date-fns CDN 링크 사용 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/date-fns/2.27.0/date-fns.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-adapter-date-fns/1.1.0/chartjs-adapter-date-fns.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  </head>
+  <body>
+    <select id="dateSelect"></select>
+    <canvas id="concurrentUsersChart"></canvas>
+
+    <script>
+      let myChart = null; // 차트 인스턴스를 저장할 변수
+
+      // 날짜 데이터를 가져와 콤보박스를 채우는 함수
+      async function populateDateSelect() {
+        try {
+          const response = await axios.get('http://localhost:3500/get-dates');
+          const dates = response.data;
+          const select = document.getElementById('dateSelect');
+          dates.forEach((date, index) => {
+            const option = new Option(
+              new Date(date).toLocaleDateString(),
+              date,
+            );
+            select.appendChild(option);
+            if (index === 0) {
+              select.value = date; // 첫 번째 날짜를 기본값으로 설정
+              renderChart(date); // 첫 번째 날짜에 대한 차트 렌더링
+            }
+          });
+        } catch (error) {
+          console.error('Error fetching dates:', error);
+        }
+      }
+
+      // 선택된 날짜에 따라 동시접속자 데이터를 가져오는 함수
+      async function fetchConcurrentUsersData(selectedDate) {
+        try {
+          const startDate = new Date(selectedDate);
+          const endDate = new Date(selectedDate);
+          endDate.setDate(endDate.getDate() + 1);
+
+          const response = await axios.get(
+            `http://localhost:3500/concurrent-users`,
+            {
+              params: {
+                start: startDate.toISOString(),
+                end: endDate.toISOString(),
+              },
+            },
+          );
+          return response.data;
+        } catch (error) {
+          console.error('Error fetching concurrent users data:', error);
+        }
+      }
+
+      // 차트를 그리는 함수
+      async function renderChart(selectedDate) {
+        const rawData = await fetchConcurrentUsersData(selectedDate);
+        const dataPoints = rawData.map((record) => ({
+          x: new Date(record.timestamp),
+          y: record.count,
+        }));
+
+        const ctx = document
+          .getElementById('concurrentUsersChart')
+          .getContext('2d');
+        if (myChart) {
+          myChart.destroy();
+        }
+
+        myChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            datasets: [
+              {
+                label: '동시접속자 수',
+                data: dataPoints,
+                borderColor: 'rgb(75, 192, 192)',
+                fill: false,
+              },
+            ],
+          },
+          options: {
+            scales: {
+              x: {
+                type: 'time',
+                time: {
+                  unit: 'minute',
+                  tooltipFormat: 'HH:mm',
+                },
+                title: {
+                  display: true,
+                  text: '시간',
+                },
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: '동시접속자 수',
+                },
+              },
+            },
+          },
+        });
+      }
+
+      // 콤보박스 이벤트 리스너
+      document
+        .getElementById('dateSelect')
+        .addEventListener('change', function () {
+          const selectedDate = this.value;
+          renderChart(selectedDate);
+        });
+
+      // 페이지 로드 시 콤보박스 채우기
+      populateDateSelect();
+    </script>
+  </body>
+</html>

@@ -259,13 +259,8 @@ export default function socket(socketIo) {
 
     // wecRTC
     socket.on('requestUserList', (data) => {
-      console.log('오우오우 =======>', data.player.spaceId);
-      // const userdata = userMap.get(data.id);
-      // userdata.x = data.x;
-      // userdata.y = data.y;
-      // userMap.set(data.id, userdata);
       const spaceUsers = [...userMap.values()]
-        .filter((user) => user.spaceId === data.player.spaceId)
+        .filter((user) => user.spaceId === data.spaceId)
         .map((user) => user.id);
 
       socket.emit('update-user-list', { userIds: spaceUsers });

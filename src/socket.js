@@ -259,15 +259,17 @@ export default function socket(socketIo) {
 
     // wecRTC
     socket.on('requestUserList', (data) => {
+      console.log('[서버] 유저 정보 요청 받음', data);
       const spaceUsers = [...userMap.values()]
         .filter((user) => user.spaceId === data.spaceId)
         .map((user) => user.id);
-
+      console.log('[서버] 유저 리스트 업데이트!', spaceUsers);
       socket.emit('update-user-list', { userIds: spaceUsers });
       socket.broadcast.emit('update-user-list', { userIds: spaceUsers });
     });
 
     socket.on('mediaOffer', (data) => {
+      console.log('[서버] offer 받음 ');
       socket.to(data.to).emit('mediaOffer', {
         from: data.from,
         offer: data.offer,
@@ -275,6 +277,7 @@ export default function socket(socketIo) {
     });
 
     socket.on('mediaAnswer', (data) => {
+      console.log('[서버] answer 받음');
       socket.to(data.to).emit('mediaAnswer', {
         from: data.from,
         answer: data.answer,

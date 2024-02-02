@@ -4,7 +4,7 @@ import schedule from 'node-schedule';
 import AllChat from '../schemas/all-chat.js';
 import DirectMessage from '../schemas/direct-message.js';
 import { configDotenv } from 'dotenv';
-
+import jwt from 'jsonwebtoken';
 configDotenv();
 
 export default function socket(socketIo) {
@@ -34,6 +34,7 @@ export default function socket(socketIo) {
 
     userMap.set(socket.id, userdata);
     connectedUsers.push(socket.id);
+    console.log([...userMap.values()]);
 
     updateConnectedUsersCount();
     socket.on('disconnect', async () => {
@@ -207,7 +208,7 @@ export default function socket(socketIo) {
         message: data.message,
       });
       //유저 맵 출력해서 값 확인
-      // console.log('usermap in allchat:', userMap.get(data.id));
+      console.log('usermap in allchat:', userMap.get(data.id));
       AllChat.create({
         nick_name: data.nickName,
         message: data.message,
@@ -222,8 +223,8 @@ export default function socket(socketIo) {
         senderId: data.senderId,
         message: data.message,
       });
-      // console.log('DMDATA=>', data);
-      // console.log('userMap in DMChat:', userMap);
+      console.log('DMDATA=>', data);
+      console.log('userMap in DMChat:', userMap);
       //userMap에서 이름을 가져와보자.
       //일단 테스트용도
       //출력이되는지좀 보자.
@@ -243,12 +244,12 @@ export default function socket(socketIo) {
         //모든 Room을 끊는다. 이건 매우 위험한 짓이다. 하지만 이렇게 해야 한다.
         //나중에 문제가 되면 if문에 조건을 더 걸자.
         //실행가능하길 빌자
-        // console.log('room', room);
+        console.log('room', room);
         if (room !== socket.id && !room.includes('space')) {
           socket.leave(room);
         }
       }
-
+      console.log('socket.rooms: ', socket.rooms);
       socket.join(data.room);
       socketIo.sockets.to(data.room).emit('chatInGroup', {
         message: data.message,
@@ -258,34 +259,42 @@ export default function socket(socketIo) {
     });
 
     // wecRTC
-    socket.on('requestUserList', (data) => {
-      const spaceUsers = [...userMap.values()]
-        .filter((user) => user.spaceId === data.spaceId)
-        .map((user) => user.id);
-
-      socket.emit('update-user-list', { userIds: spaceUsers });
-      socket.broadcast.emit('update-user-list', { userIds: spaceUsers });
+    socket.on('requestUserList', () => {
+      console.log(`requestUserList : 웹브라우저에서 보내는 메시지는 없음`);
+      socket.emit('update-user-list', { userIds: connectedUsers });
+      socket.broadcast.emit('update-user-list', { userIds: connectedUsers });
+      console.log(
+        `update-user-list 나를 제외한 유저들에게 업데이트된 유저 리스트 담아서 보냄`,
+      );
     });
 
     socket.on('mediaOffer', (data) => {
+      console.log('mediaOffer : 웹브라우저에서 내가 만든 offer 메시지 받음');
       socket.to(data.to).emit('mediaOffer', {
         from: data.from,
         offer: data.offer,
       });
+      console.log('mediaOffer : 다른 유저에게 offer 메시지 웹브라우저로 보냄');
     });
 
     socket.on('mediaAnswer', (data) => {
+      console.log('mediaAnswer : 웹브라우저에서 내가 만든 answer 메시지 받음');
       socket.to(data.to).emit('mediaAnswer', {
         from: data.from,
         answer: data.answer,
       });
+      console.log('mediaAnswer 다른 유저에게 answer 메시지 웹브라우저로 보냄');
     });
 
     socket.on('iceCandidate', (data) => {
+      console.log(
+        'iceCandidate : 웹브라우저에서 내가 만든 SDP ice candidate 받음',
+      );
       socket.to(data.to).emit('remotePeerIceCandidate', {
         from: data.from,
         candidate: data.candidate,
       });
+      console.log('remotePeerIceCandidate : 다른 유저한테 candidate 보냄');
     });
 
     socket.on('AllChatHistory', async (data) => {

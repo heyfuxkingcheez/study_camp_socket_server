@@ -76,6 +76,10 @@ export default function socket(socketIo) {
         socketIo.sockets
           .to(`space ${userdata.spaceId}`)
           .emit('leaveSpace', userdata);
+
+        socketIo.sockets
+          .to(`space ${userdata.spaceId}`)
+          .emit('disconnected', socket.id);
       }
 
       userMap.delete(socket.id);

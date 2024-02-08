@@ -15,7 +15,7 @@ const server = createServer(app);
 
 app.use(
   cors({
-    origin: process.env.CLIENT,
+    origin: `${process.env.CLIENT}`,
     credentials: true,
   }),
 );
